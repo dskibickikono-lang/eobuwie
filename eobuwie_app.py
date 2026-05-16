@@ -130,10 +130,10 @@ with st.sidebar:
     # 1. Manual Entry Form
     with st.form("manual_entry_form", clear_on_submit=True):
         st.subheader("Manual Daily Entry")
-        w_id = st.text_input("Worker ID (e.g., OT00123)")
+        w_id = st.text_input("Worker ID (e.g., OT00123)", help="Format: OT followed by 5 digits")
         dept = st.selectbox("Department", ["PICK", "PACK"])
         date_val = st.date_input("Date", datetime.date.today())
-        units = st.text_input("Units Processed (or 'TRAINING'/'NB')")
+        units = st.text_input("Units Processed (or 'TRAINING'/'NB')", help="Daily benchmark: 460 for PICK, 464 for PACK")
         
         submit_manual = st.form_submit_button("Add Entry")
         if submit_manual and w_id:
@@ -144,8 +144,7 @@ with st.sidebar:
                 'Units_per_Shift': units
             }])
             st.session_state.performance_data = pd.concat([st.session_state.performance_data, new_row], ignore_index=True)
-            st.success(f"Added {w_id} for {date_val}")
-            st.rerun()
+            st.toast(f"Added {w_id} for {date_val}", icon="✅")
 
     st.markdown("---")
     
@@ -157,74 +156,75 @@ with st.sidebar:
         submit_upload = st.form_submit_button("Process File")
         
         if submit_upload and uploaded_file:
-            try:
-                if uploaded_file.name.endswith('.csv'):
-                    raw_data = pd.read_csv(uploaded_file)
-                else:
-                    raw_data = pd.read_excel(uploaded_file)
-                
-                # Identify Worker ID column
-                id_col = None
-                for col in raw_data.columns:
-                    if str(col).strip().lower() in ['login', 'worker_id', 'worker id']:
-                        id_col = col
-                        break
-                
-                if not id_col:
-                    st.error("Could not find a worker ID column (e.g., 'login', 'Worker_ID').")
-                else:
-                    # Identify Date columns
-                    date_cols = []
-                    for col in raw_data.columns:
-                        try:
-                            pd.to_datetime(str(col))
-                            date_cols.append(col)
-                        except (ValueError, TypeError):
-                            continue
-                    
-                    if not date_cols:
-                        st.error("Could not identify any date columns in the file header.")
+            with st.status("Processing Shift Report...", expanded=True) as status:
+                try:
+                    if uploaded_file.name.endswith('.csv'):
+                        raw_data = pd.read_csv(uploaded_file)
                     else:
-                        # Identify Department column
-                        dept_col = None
-                        for col in raw_data.columns:
-                            if str(col).strip().lower() == 'department':
-                                dept_col = col
-                                break
-                        
-                        id_vars = [id_col]
-                        if dept_col:
-                            id_vars.append(dept_col)
-                            
-                        # Unpivot (Melt) the wide dataframe
-                        melted_data = pd.melt(
-                            raw_data,
-                            id_vars=id_vars,
-                            value_vars=date_cols,
-                            var_name='Date',
-                            value_name='Units_per_Shift'
-                        )
-                        
-                        # Standardize column names
-                        melted_data.rename(columns={id_col: 'Worker_ID'}, inplace=True)
-                        if dept_col:
-                            melted_data.rename(columns={dept_col: 'Department'}, inplace=True)
-                        else:
-                            melted_data['Department'] = upload_dept
-                            
-                        melted_data = melted_data[['Worker_ID', 'Department', 'Date', 'Units_per_Shift']]
-                        
-                        # Append to state
-                        st.session_state.performance_data = pd.concat([st.session_state.performance_data, melted_data], ignore_index=True)
-                        st.success("File parsed, unpivoted, and merged successfully!")
-                        st.rerun()
-                        
-            except Exception as e:
-                st.error(f"Error parsing file: {e}")
+                        raw_data = pd.read_excel(uploaded_file)
 
-    if st.button("Clear All Data"):
-        st.session_state.performance_data = pd.DataFrame(columns=['Worker_ID', 'Department', 'Date', 'Units_per_Shift'])
-        st.rerun()
+                    # Identify Worker ID column
+                    id_col = None
+                    for col in raw_data.columns:
+                        if str(col).strip().lower() in ['login', 'worker_id', 'worker id']:
+                            id_col = col
+                            break
+                    
+                    if not id_col:
+                        status.update(label="Could not find a worker ID column (e.g., 'login', 'Worker_ID').", state="error", expanded=True)
+                    else:
+                        # Identify Date columns
+                        date_cols = []
+                        for col in raw_data.columns:
+                            try:
+                                pd.to_datetime(str(col))
+                                date_cols.append(col)
+                            except (ValueError, TypeError):
+                                continue
+                        
+                        if not date_cols:
+                            status.update(label="Could not identify any date columns in the file header.", state="error", expanded=True)
+                        else:
+                            # Identify Department column
+                            dept_col = None
+                            for col in raw_data.columns:
+                                if str(col).strip().lower() == 'department':
+                                    dept_col = col
+                                    break
+                            
+                            id_vars = [id_col]
+                            if dept_col:
+                                id_vars.append(dept_col)
+
+                            # Unpivot (Melt) the wide dataframe
+                            melted_data = pd.melt(
+                                raw_data,
+                                id_vars=id_vars,
+                                value_vars=date_cols,
+                                var_name='Date',
+                                value_name='Units_per_Shift'
+                            )
+
+                            # Standardize column names
+                            melted_data.rename(columns={id_col: 'Worker_ID'}, inplace=True)
+                            if dept_col:
+                                melted_data.rename(columns={dept_col: 'Department'}, inplace=True)
+                            else:
+                                melted_data['Department'] = upload_dept
+
+                            melted_data = melted_data[['Worker_ID', 'Department', 'Date', 'Units_per_Shift']]
+
+                            # Append to state
+                            st.session_state.performance_data = pd.concat([st.session_state.performance_data, melted_data], ignore_index=True)
+                            status.update(label="File parsed, unpivoted, and merged successfully!", state="complete", expanded=False)
+
+                except Exception as e:
+                    status.update(label=f"Error parsing file: {e}", state="error", expanded=True)
+
+    with st.expander("Danger Zone"):
+        if st.button("Clear All Data"):
+            st.session_state.performance_data = pd.DataFrame(columns=['Worker_ID', 'Department', 'Date', 'Units_per_Shift'])
+            st.toast("All data cleared successfully", icon="✅")
 
     st.markdown("---")
     st.markdown("### KPI Thresholds")
