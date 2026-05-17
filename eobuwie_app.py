@@ -131,10 +131,10 @@ with st.sidebar:
     # 1. Manual Entry Form
     with st.form("manual_entry_form", clear_on_submit=True):
         st.subheader("Manual Daily Entry")
-        w_id = st.text_input("Worker ID (e.g., OT00123)")
+        w_id = st.text_input("Worker ID", help="e.g., OT00123")
         dept = st.selectbox("Department", ["PICK", "PACK"])
         date_val = st.date_input("Date", datetime.date.today())
-        units = st.text_input("Units Processed (or 'TRAINING'/'NB')")
+        units = st.text_input("Units Processed", help="Enter number or 'TRAINING'/'NB'")
         
         submit_manual = st.form_submit_button("Add Entry")
         if submit_manual and w_id:
@@ -146,7 +146,6 @@ with st.sidebar:
             }])
             st.session_state.performance_data = pd.concat([st.session_state.performance_data, new_row], ignore_index=True)
             st.toast(f"Added {w_id} for {date_val}", icon="✅")
-            st.rerun()
 
     st.markdown("---")
     
@@ -219,16 +218,14 @@ with st.sidebar:
                             # Append to state
                             st.session_state.performance_data = pd.concat([st.session_state.performance_data, melted_data], ignore_index=True)
                             status.update(label="Report successfully parsed!", state="complete", expanded=False)
-                            time.sleep(1) # Let the user see the success status before rerun
-                            st.rerun()
 
                 except Exception as e:
                     status.update(label=f"Error parsing file: {e}", state="error", expanded=True)
 
-    if st.button("Clear All Data"):
-        st.session_state.performance_data = pd.DataFrame(columns=['Worker_ID', 'Department', 'Date', 'Units_per_Shift'])
-        st.toast("All Data Cleared", icon="🗑️")
-        st.rerun()
+    with st.expander("⚠️ Danger Zone"):
+        if st.button("Clear All Data"):
+            st.session_state.performance_data = pd.DataFrame(columns=['Worker_ID', 'Department', 'Date', 'Units_per_Shift'])
+            st.toast("All Data Cleared", icon="🗑️")
 
     st.markdown("---")
     st.markdown("### KPI Thresholds")
