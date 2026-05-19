@@ -176,13 +176,8 @@ with st.sidebar:
                         status.update(label="Could not find a worker ID column (e.g., 'login', 'Worker_ID').", state="error", expanded=True)
                     else:
                         # Identify Date columns
-                        date_cols = []
-                        for col in raw_data.columns:
-                            try:
-                                pd.to_datetime(str(col))
-                                date_cols.append(col)
-                            except (ValueError, TypeError):
-                                continue
+                        converted = pd.to_datetime(pd.Series(raw_data.columns).astype(str), errors='coerce', format='mixed')
+                        date_cols = raw_data.columns[converted.notna()].tolist()
                         
                         if not date_cols:
                             status.update(label="Could not identify any date columns in the file header.", state="error", expanded=True)
