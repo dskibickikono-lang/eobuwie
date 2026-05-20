@@ -11,7 +11,7 @@ PICK_TARGET = 460
 PACK_TARGET = 464
 
 # --- UI STYLING (Dark Mode & Glassmorphism) ---
-st.markdown("""
+st.html("""
     <style>
     .stApp {
         background-color: #0f172a;
@@ -35,7 +35,7 @@ st.markdown("""
         font-weight: 600;
     }
     </style>
-""", unsafe_allow_html=True)
+""")
 
 # --- MOCK DATA GENERATOR ---
 def generate_mock_data():
