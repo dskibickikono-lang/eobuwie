@@ -288,3 +288,38 @@ class TestSecurityValidation:
     ])
     def test_is_valid_worker_id(self, w_id, expected):
         assert app.is_valid_worker_id(w_id) == expected
+# ── RENDER DATAFRAME ──────────────────────────────────────────────────────────
+class TestRenderDataframe:
+    def test_render_dataframe_empty(self):
+        app.st.info.reset_mock()
+        app.st.dataframe.reset_mock()
+
+        empty_df = pd.DataFrame()
+        app.render_dataframe(empty_df, [])
+
+        app.st.info.assert_called_once_with("No data available for this department.")
+        app.st.dataframe.assert_not_called()
+
+    def test_render_dataframe_with_data(self):
+        app.st.info.reset_mock()
+        app.st.dataframe.reset_mock()
+
+        data = pd.DataFrame({
+            'Worker_ID': ['OT001'],
+            'w1': [0.95],
+            'Avg Efficiency': [0.95],
+            'Trend (W-o-W)': [0.05]
+        })
+        weeks = ['w1']
+
+        app.render_dataframe(data, weeks)
+
+        app.st.info.assert_not_called()
+        app.st.dataframe.assert_called_once()
+        args, kwargs = app.st.dataframe.call_args
+        assert kwargs.get('hide_index') is True
+
+        # Verify that the styled dataframe maps correctly by inspecting the first argument
+        styled_df = args[0] if args else kwargs.get('data')
+        assert styled_df is not None
+        assert isinstance(styled_df, pd.io.formats.style.Styler)
