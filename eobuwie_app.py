@@ -131,6 +131,10 @@ with st.sidebar:
     # 1. Manual Entry Form
     with st.form("manual_entry_form", clear_on_submit=True):
         st.subheader("Manual Daily Entry")
+        w_id = st.text_input("Worker ID (e.g., OT00123)", help="Enter the Worker ID, e.g., OT00123")
+        dept = st.selectbox("Department", ["PICK", "PACK"])
+        date_val = st.date_input("Date", datetime.date.today())
+        units = st.text_input("Units Processed (or 'TRAINING'/'NB')", help="Enter numeric units processed, or use text for special status (TRAINING, NB, etc.)")
         w_id = st.text_input("Worker ID (e.g., OT00123)", help="Enter the unique alphanumeric Worker ID (2-15 characters).")
         dept = st.selectbox("Department", ["PICK", "PACK"], help="Select the department. Target: PICK=460, PACK=464.")
         date_val = st.date_input("Date", datetime.date.today(), help="Date of the shift.")
@@ -223,6 +227,10 @@ with st.sidebar:
                     status.update(label=f"Error parsing file: {e}", state="error", expanded=True)
 
     with st.expander("⚠️ Danger Zone"):
+        if st.button("Clear All Data"):
+            st.session_state.performance_data = pd.DataFrame(columns=['Worker_ID', 'Department', 'Date', 'Units_per_Shift'])
+            st.toast("All Data Cleared", icon="🗑️")
+            st.rerun()
         confirm = st.checkbox("I confirm I want to clear all data")
         if st.button("Clear All Data", disabled=not confirm):
             st.session_state.performance_data = pd.DataFrame(columns=['Worker_ID', 'Department', 'Date', 'Units_per_Shift'])
