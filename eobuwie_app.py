@@ -218,10 +218,10 @@ with st.sidebar:
                     status.update(label=f"Error parsing file: {e}", state="error", expanded=True)
 
     with st.expander("⚠️ Danger Zone"):
-        if st.button("Clear All Data"):
+        confirm = st.checkbox("I confirm I want to clear all data")
+        if st.button("Clear All Data", disabled=not confirm):
             st.session_state.performance_data = pd.DataFrame(columns=['Worker_ID', 'Department', 'Date', 'Units_per_Shift'])
             st.toast("All Data Cleared", icon="🗑️")
-            st.rerun()
 
     st.markdown("---")
     st.markdown("### KPI Thresholds")
