@@ -131,6 +131,10 @@ with st.sidebar:
     # 1. Manual Entry Form
     with st.form("manual_entry_form", clear_on_submit=True):
         st.subheader("Manual Daily Entry")
+        w_id = st.text_input("Worker ID", help="e.g., OT00123")
+        dept = st.selectbox("Department", ["PICK", "PACK"])
+        date_val = st.date_input("Date", datetime.date.today())
+        units = st.text_input("Units Processed", help="Enter number or 'TRAINING'/'NB'")
         w_id = st.text_input("Worker ID (e.g., OT00123)", help="Enter the Worker ID, e.g., OT00123")
         dept = st.selectbox("Department", ["PICK", "PACK"])
         date_val = st.date_input("Date", datetime.date.today())
