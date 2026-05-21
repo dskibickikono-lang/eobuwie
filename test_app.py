@@ -268,6 +268,26 @@ def test_mock_data_departments_only_pick_and_pack():
     assert set(df["Department"].unique()).issubset({"PICK", "PACK"})
 
 
+# ── SECURITY & VALIDATION ──────────────────────────────────────────────────────
+class TestSecurityValidation:
+    @pytest.mark.parametrize("w_id,expected", [
+        ("OT00123", True),
+        ("ot00123", True),
+        ("A1", True),
+        ("VERYLONGID12345", True),
+        ("A", False),            # Too short
+        ("TOOLONGID1234567", False), # Too long (16 chars)
+        ("OT@123", False),       # Special char
+        ("OT 123", False),       # Space
+        ("OT;DROP", False),      # Potential SQLi attempt
+        ("NAN", False),          # Null artifact
+        ("NONE", False),         # Null artifact
+        ("", False),             # Empty
+        (None, False),           # None
+        (123, False),            # Not a string
+    ])
+    def test_is_valid_worker_id(self, w_id, expected):
+        assert app.is_valid_worker_id(w_id) == expected
 # ── RENDER DATAFRAME ──────────────────────────────────────────────────────────
 class TestRenderDataframe:
     def test_render_dataframe_empty(self):

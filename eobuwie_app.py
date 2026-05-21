@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import datetime
+import re
 import time
 
 # --- CONFIG & CONSTANTS ---
@@ -69,6 +70,19 @@ def generate_mock_data():
 # --- STATE MANAGEMENT ---
 if 'performance_data' not in st.session_state:
     st.session_state.performance_data = generate_mock_data()
+
+# --- SECURITY & VALIDATION ---
+def is_valid_worker_id(w_id):
+    """
+    Validates Worker ID: must be alphanumeric and between 2-15 characters.
+    Excludes common null artifacts like 'NAN' or 'NONE'.
+    """
+    if not isinstance(w_id, str) or not w_id:
+        return False
+    w_id_upper = w_id.upper()
+    if w_id_upper in ["NAN", "NONE"]:
+        return False
+    return bool(re.match(r"^[A-Z0-9]{2,15}$", w_id_upper))
 
 # --- DATA CLEANING & AGGREGATION ---
 def clean_and_aggregate_data(df):
@@ -146,6 +160,18 @@ with st.sidebar:
         
         submit_manual = st.form_submit_button("Add Entry")
         if submit_manual and w_id:
+            if is_valid_worker_id(w_id):
+                new_row = pd.DataFrame([{
+                    'Worker_ID': w_id.upper(),
+                    'Department': dept,
+                    'Date': pd.to_datetime(date_val),
+                    'Units_per_Shift': units
+                }])
+                st.session_state.performance_data = pd.concat([st.session_state.performance_data, new_row], ignore_index=True)
+                st.success(f"Added {w_id.upper()} for {date_val}")
+                st.rerun()
+            else:
+                st.error("Invalid Worker ID format. Use alphanumeric characters (2-15 chars).")
             new_row = pd.DataFrame([{
                 'Worker_ID': w_id.upper(), 
                 'Department': dept, 
@@ -201,6 +227,24 @@ with st.sidebar:
                                     dept_col = col
                                     break
                             
+                        melted_data = melted_data[['Worker_ID', 'Department', 'Date', 'Units_per_Shift']]
+                        
+                        # Sanitize Worker IDs
+                        original_count = len(melted_data)
+                        # Explicitly drop nulls before string conversion to avoid 'nan' artifacts
+                        melted_data = melted_data.dropna(subset=['Worker_ID'])
+                        melted_data = melted_data[melted_data['Worker_ID'].astype(str).apply(is_valid_worker_id)]
+                        dropped_count = original_count - len(melted_data)
+
+                        # Append to state
+                        st.session_state.performance_data = pd.concat([st.session_state.performance_data, melted_data], ignore_index=True)
+                        if dropped_count > 0:
+                            st.warning(f"File processed, but {dropped_count} rows were dropped due to invalid Worker IDs.")
+                        st.success("File parsed, unpivoted, and merged successfully!")
+                        st.rerun()
+                        
+            except Exception as e:
+                st.error(f"Error parsing file: {e}")
                             id_vars = [id_col]
                             if dept_col:
                                 id_vars.append(dept_col)
