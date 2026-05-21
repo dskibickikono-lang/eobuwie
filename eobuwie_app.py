@@ -11,7 +11,7 @@ PICK_TARGET = 460
 PACK_TARGET = 464
 
 # --- UI STYLING (Dark Mode & Glassmorphism) ---
-st.markdown("""
+st.html("""
     <style>
     .stApp {
         background-color: #0f172a;
@@ -35,7 +35,7 @@ st.markdown("""
         font-weight: 600;
     }
     </style>
-""", unsafe_allow_html=True)
+""")
 
 # --- MOCK DATA GENERATOR ---
 def generate_mock_data():
@@ -131,10 +131,10 @@ with st.sidebar:
     # 1. Manual Entry Form
     with st.form("manual_entry_form", clear_on_submit=True):
         st.subheader("Manual Daily Entry")
-        w_id = st.text_input("Worker ID (e.g., OT00123)")
-        dept = st.selectbox("Department", ["PICK", "PACK"])
-        date_val = st.date_input("Date", datetime.date.today())
-        units = st.text_input("Units Processed (or 'TRAINING'/'NB')")
+        w_id = st.text_input("Worker ID (e.g., OT00123)", help="Enter the unique alphanumeric Worker ID (2-15 characters).")
+        dept = st.selectbox("Department", ["PICK", "PACK"], help="Select the department. Target: PICK=460, PACK=464.")
+        date_val = st.date_input("Date", datetime.date.today(), help="Date of the shift.")
+        units = st.text_input("Units Processed (or 'TRAINING'/'NB')", help="Number of items processed during the shift. Enter 'TRAINING' or 'NB' for non-standard shifts.")
         
         submit_manual = st.form_submit_button("Add Entry")
         if submit_manual and w_id:
@@ -146,7 +146,6 @@ with st.sidebar:
             }])
             st.session_state.performance_data = pd.concat([st.session_state.performance_data, new_row], ignore_index=True)
             st.toast(f"Added {w_id} for {date_val}", icon="✅")
-            st.rerun()
 
     st.markdown("---")
     
@@ -181,13 +180,8 @@ with st.sidebar:
                         status.update(label="Could not find a worker ID column (e.g., 'login', 'Worker_ID').", state="error", expanded=True)
                     else:
                         # Identify Date columns
-                        date_cols = []
-                        for col in raw_data.columns:
-                            try:
-                                pd.to_datetime(str(col))
-                                date_cols.append(col)
-                            except (ValueError, TypeError):
-                                continue
+                        converted = pd.to_datetime(pd.Series(raw_data.columns).astype(str), errors='coerce', format='mixed')
+                        date_cols = raw_data.columns[converted.notna()].tolist()
                         
                         if not date_cols:
                             status.update(label="Could not identify any date columns in the file header.", state="error", expanded=True)
@@ -224,16 +218,15 @@ with st.sidebar:
                             # Append to state
                             st.session_state.performance_data = pd.concat([st.session_state.performance_data, melted_data], ignore_index=True)
                             status.update(label="Report successfully parsed!", state="complete", expanded=False)
-                            time.sleep(1) # Let the user see the success status before rerun
-                            st.rerun()
 
                 except Exception as e:
                     status.update(label=f"Error parsing file: {e}", state="error", expanded=True)
 
-    if st.button("Clear All Data"):
-        st.session_state.performance_data = pd.DataFrame(columns=['Worker_ID', 'Department', 'Date', 'Units_per_Shift'])
-        st.toast("All Data Cleared", icon="🗑️")
-        st.rerun()
+    with st.expander("⚠️ Danger Zone"):
+        confirm = st.checkbox("I confirm I want to clear all data")
+        if st.button("Clear All Data", disabled=not confirm):
+            st.session_state.performance_data = pd.DataFrame(columns=['Worker_ID', 'Department', 'Date', 'Units_per_Shift'])
+            st.toast("All Data Cleared", icon="🗑️")
 
     st.markdown("---")
     st.markdown("### KPI Thresholds")
