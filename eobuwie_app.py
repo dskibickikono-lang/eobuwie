@@ -159,10 +159,15 @@ with st.sidebar:
         if submit_upload and uploaded_file:
             with st.status("Processing Daily Report...", expanded=True) as status:
                 try:
+                    # Security check: Limit file size to 5MB
+                    if uploaded_file.size > 5 * 1024 * 1024:
+                        raise ValueError("File exceeds maximum allowed size of 5MB.")
+
                     if uploaded_file.name.endswith('.csv'):
                         raw_data = pd.read_csv(uploaded_file)
                     else:
-                        raw_data = pd.read_excel(uploaded_file)
+                        # Security check: Use explicit engine to avoid unsafe legacy parsers
+                        raw_data = pd.read_excel(uploaded_file, engine='openpyxl')
 
                     # Identify Worker ID column
                     id_col = None
