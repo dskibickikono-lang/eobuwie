@@ -145,14 +145,6 @@ with st.sidebar:
     # 1. Manual Entry Form
     with st.form("manual_entry_form", clear_on_submit=True):
         st.subheader("Manual Daily Entry")
-        w_id = st.text_input("Worker ID", help="e.g., OT00123")
-        dept = st.selectbox("Department", ["PICK", "PACK"])
-        date_val = st.date_input("Date", datetime.date.today())
-        units = st.text_input("Units Processed", help="Enter number or 'TRAINING'/'NB'")
-        w_id = st.text_input("Worker ID (e.g., OT00123)", help="Enter the Worker ID, e.g., OT00123")
-        dept = st.selectbox("Department", ["PICK", "PACK"])
-        date_val = st.date_input("Date", datetime.date.today())
-        units = st.text_input("Units Processed (or 'TRAINING'/'NB')", help="Enter numeric units processed, or use text for special status (TRAINING, NB, etc.)")
         w_id = st.text_input("Worker ID (e.g., OT00123)", help="Enter the unique alphanumeric Worker ID (2-15 characters).")
         dept = st.selectbox("Department", ["PICK", "PACK"], help="Select the department. Target: PICK=460, PACK=464.")
         date_val = st.date_input("Date", datetime.date.today(), help="Date of the shift.")
@@ -168,18 +160,9 @@ with st.sidebar:
                     'Units_per_Shift': units
                 }])
                 st.session_state.performance_data = pd.concat([st.session_state.performance_data, new_row], ignore_index=True)
-                st.success(f"Added {w_id.upper()} for {date_val}")
-                st.rerun()
+                st.toast(f"Added {w_id.upper()} for {date_val}", icon="✅")
             else:
                 st.error("Invalid Worker ID format. Use alphanumeric characters (2-15 chars).")
-            new_row = pd.DataFrame([{
-                'Worker_ID': w_id.upper(), 
-                'Department': dept, 
-                'Date': pd.to_datetime(date_val), 
-                'Units_per_Shift': units
-            }])
-            st.session_state.performance_data = pd.concat([st.session_state.performance_data, new_row], ignore_index=True)
-            st.toast(f"Added {w_id} for {date_val}", icon="✅")
 
     st.markdown("---")
     
@@ -227,24 +210,6 @@ with st.sidebar:
                                     dept_col = col
                                     break
                             
-                        melted_data = melted_data[['Worker_ID', 'Department', 'Date', 'Units_per_Shift']]
-                        
-                        # Sanitize Worker IDs
-                        original_count = len(melted_data)
-                        # Explicitly drop nulls before string conversion to avoid 'nan' artifacts
-                        melted_data = melted_data.dropna(subset=['Worker_ID'])
-                        melted_data = melted_data[melted_data['Worker_ID'].astype(str).apply(is_valid_worker_id)]
-                        dropped_count = original_count - len(melted_data)
-
-                        # Append to state
-                        st.session_state.performance_data = pd.concat([st.session_state.performance_data, melted_data], ignore_index=True)
-                        if dropped_count > 0:
-                            st.warning(f"File processed, but {dropped_count} rows were dropped due to invalid Worker IDs.")
-                        st.success("File parsed, unpivoted, and merged successfully!")
-                        st.rerun()
-                        
-            except Exception as e:
-                st.error(f"Error parsing file: {e}")
                             id_vars = [id_col]
                             if dept_col:
                                 id_vars.append(dept_col)
@@ -267,18 +232,25 @@ with st.sidebar:
 
                             melted_data = melted_data[['Worker_ID', 'Department', 'Date', 'Units_per_Shift']]
 
+                            # Sanitize Worker IDs
+                            original_count = len(melted_data)
+                            # Explicitly drop nulls before string conversion to avoid 'nan' artifacts
+                            melted_data = melted_data.dropna(subset=['Worker_ID'])
+                            melted_data = melted_data[melted_data['Worker_ID'].astype(str).apply(is_valid_worker_id)]
+                            dropped_count = original_count - len(melted_data)
+
                             # Append to state
                             st.session_state.performance_data = pd.concat([st.session_state.performance_data, melted_data], ignore_index=True)
-                            status.update(label="Report successfully parsed!", state="complete", expanded=False)
+
+                            msg = "Report successfully parsed!"
+                            if dropped_count > 0:
+                                msg += f" ({dropped_count} rows dropped due to invalid Worker IDs)"
+                            status.update(label=msg, state="complete", expanded=False)
 
                 except Exception as e:
                     status.update(label=f"Error parsing file: {e}", state="error", expanded=True)
 
     with st.expander("⚠️ Danger Zone"):
-        if st.button("Clear All Data"):
-            st.session_state.performance_data = pd.DataFrame(columns=['Worker_ID', 'Department', 'Date', 'Units_per_Shift'])
-            st.toast("All Data Cleared", icon="🗑️")
-            st.rerun()
         confirm = st.checkbox("I confirm I want to clear all data")
         if st.button("Clear All Data", disabled=not confirm):
             st.session_state.performance_data = pd.DataFrame(columns=['Worker_ID', 'Department', 'Date', 'Units_per_Shift'])
