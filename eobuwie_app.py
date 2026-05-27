@@ -152,10 +152,9 @@ with st.sidebar:
                     'Units_per_Shift': units
                 }])
                 st.session_state.performance_data = pd.concat([st.session_state.performance_data, new_row], ignore_index=True)
-                st.success(f"Added {w_id.upper()} for {date_val}")
-                st.rerun()
+                st.toast(f"Added {w_id.upper()} for {date_val}", icon="✅")
             else:
-                st.error("Invalid Worker ID format. Use alphanumeric characters (2-15 chars).")
+                st.toast("Invalid Worker ID format. Use alphanumeric characters (2-15 chars).", icon="⚠️")
 
     st.markdown("---")
 
@@ -230,17 +229,15 @@ with st.sidebar:
                                 st.warning(f"File processed, but {dropped_count} rows were dropped due to invalid Worker IDs.")
 
                             status.update(label="Report successfully parsed!", state="complete", expanded=False)
-                            st.rerun()
 
                 except Exception as e:
-                    status.update(label=f"Error parsing file: {e}", state="error", expanded=True)
+                    status.update(label="Please check the file format. Ensure it's a valid CSV or Excel file.", state="error", expanded=True)
 
     with st.expander("⚠️ Danger Zone"):
         confirm = st.checkbox("I confirm I want to clear all data")
         if st.button("Clear All Data", disabled=not confirm):
             st.session_state.performance_data = pd.DataFrame(columns=['Worker_ID', 'Department', 'Date', 'Units_per_Shift'])
             st.toast("All Data Cleared", icon="🗑️")
-            st.rerun()
 
     st.markdown("---")
     st.markdown("### KPI Thresholds")
@@ -276,7 +273,7 @@ tab1, tab2 = st.tabs(["🛒 PICK Department (Target: 460)", "📦 PACK Departmen
 
 def render_dataframe(data, weeks):
     if data.empty:
-        st.info("No data available for this department.")
+        st.info("⚪ No data available for this department. Use the left sidebar to add manual entries or upload a daily report.", icon="ℹ️")
         return
 
     styled_df = data.style.map(get_color_status, subset=weeks + ['Avg Efficiency']) \
