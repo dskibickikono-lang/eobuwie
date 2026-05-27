@@ -297,7 +297,7 @@ class TestRenderDataframe:
         empty_df = pd.DataFrame()
         app.render_dataframe(empty_df, [])
 
-        app.st.info.assert_called_once_with("No data available for this department.")
+        app.st.info.assert_called_once_with("⚪ No data available for this department. Use the left sidebar to add manual entries or upload a daily report.", icon="ℹ️")
         app.st.dataframe.assert_not_called()
 
     def test_render_dataframe_with_data(self):
