@@ -3,7 +3,6 @@ import pandas as pd
 import numpy as np
 import datetime
 import re
-import time
 
 # --- CONFIG & CONSTANTS ---
 st.set_page_config(page_title="MODIVO Logistics Performance", layout="wide", initial_sidebar_state="expanded")
@@ -43,28 +42,25 @@ def generate_mock_data():
     np.random.seed(42)
     workers = [f"OT{str(i).zfill(5)}" for i in range(1, 61)]
     depts = ['PICK'] * 30 + ['PACK'] * 30
-    
+
     today = datetime.date.today()
     dates = [today - datetime.timedelta(days=i) for i in range(21)]
-    
+
     data = []
     for w_idx, w in enumerate(workers):
         dept = depts[w_idx]
         target = PICK_TARGET if dept == 'PICK' else PACK_TARGET
-        base_efficiency = np.random.uniform(0.35, 1.05) 
-        
+        base_efficiency = np.random.uniform(0.35, 1.05)
+
         for d in dates:
             if np.random.random() > 0.8:
                 continue
-            
             efficiency = base_efficiency + np.random.uniform(-0.1, 0.1)
             units = int(target * efficiency)
-            
             if np.random.random() > 0.95:
                 units = np.random.choice(["TRAINING", "NB", "", None])
-                
             data.append([w, dept, pd.to_datetime(d), units])
-            
+
     return pd.DataFrame(data, columns=['Worker_ID', 'Department', 'Date', 'Units_per_Shift'])
 
 # --- STATE MANAGEMENT ---
@@ -73,10 +69,6 @@ if 'performance_data' not in st.session_state:
 
 # --- SECURITY & VALIDATION ---
 def is_valid_worker_id(w_id):
-    """
-    Validates Worker ID: must be alphanumeric and between 2-15 characters.
-    Excludes common null artifacts like 'NAN' or 'NONE'.
-    """
     if not isinstance(w_id, str) or not w_id:
         return False
     w_id_upper = w_id.upper()
@@ -117,21 +109,21 @@ def process_department_data(df, dept, target):
     df_dept = df[df['Department'] == dept].copy()
     if df_dept.empty:
         return pd.DataFrame(), []
-        
+
     df_dept['%_of_Target'] = df_dept['Units_per_Shift'] / target
     pivot_pct = df_dept.pivot(index='Worker_ID', columns='Week', values='%_of_Target').reset_index()
     weeks = sorted([col for col in pivot_pct.columns if col != 'Worker_ID'])
-    
+
     if len(weeks) >= 2:
         pivot_pct['Trend (W-o-W)'] = pivot_pct[weeks[-1]] - pivot_pct[weeks[-2]]
     else:
         pivot_pct['Trend (W-o-W)'] = 0.0
-        
+
     pivot_pct['Avg Efficiency'] = pivot_pct[weeks].mean(axis=1)
-    
+
     if weeks:
         pivot_pct = pivot_pct.sort_values(by=weeks[-1], ascending=True).reset_index(drop=True)
-    
+
     return pivot_pct, weeks
 
 # --- MAIN APP ---
@@ -141,23 +133,15 @@ st.markdown("Automated Shift Leader Tracking: **PICK & PACK**")
 # Sidebar
 with st.sidebar:
     st.header("📥 Data Input")
-    
+
     # 1. Manual Entry Form
     with st.form("manual_entry_form", clear_on_submit=True):
         st.subheader("Manual Daily Entry")
-        w_id = st.text_input("Worker ID", help="e.g., OT00123")
-        dept = st.selectbox("Department", ["PICK", "PACK"])
-        date_val = st.date_input("Date", datetime.date.today())
-        units = st.text_input("Units Processed", help="Enter number or 'TRAINING'/'NB'")
-        w_id = st.text_input("Worker ID (e.g., OT00123)", help="Enter the Worker ID, e.g., OT00123")
-        dept = st.selectbox("Department", ["PICK", "PACK"])
-        date_val = st.date_input("Date", datetime.date.today())
-        units = st.text_input("Units Processed (or 'TRAINING'/'NB')", help="Enter numeric units processed, or use text for special status (TRAINING, NB, etc.)")
         w_id = st.text_input("Worker ID (e.g., OT00123)", help="Enter the unique alphanumeric Worker ID (2-15 characters).")
         dept = st.selectbox("Department", ["PICK", "PACK"], help="Select the department. Target: PICK=460, PACK=464.")
         date_val = st.date_input("Date", datetime.date.today(), help="Date of the shift.")
-        units = st.text_input("Units Processed (or 'TRAINING'/'NB')", help="Number of items processed during the shift. Enter 'TRAINING' or 'NB' for non-standard shifts.")
-        
+        units = st.text_input("Units Processed (or 'TRAINING'/'NB')", help="Number of items processed during the shift.")
+
         submit_manual = st.form_submit_button("Add Entry")
         if submit_manual and w_id:
             if is_valid_worker_id(w_id):
@@ -172,35 +156,25 @@ with st.sidebar:
                 st.rerun()
             else:
                 st.error("Invalid Worker ID format. Use alphanumeric characters (2-15 chars).")
-            new_row = pd.DataFrame([{
-                'Worker_ID': w_id.upper(), 
-                'Department': dept, 
-                'Date': pd.to_datetime(date_val), 
-                'Units_per_Shift': units
-            }])
-            st.session_state.performance_data = pd.concat([st.session_state.performance_data, new_row], ignore_index=True)
-            st.toast(f"Added {w_id} for {date_val}", icon="✅")
 
     st.markdown("---")
-    
+
     # 2. Bulk Upload (Wide Format Parser)
     st.subheader("Bulk Upload (Wide Format)")
     with st.form("upload_form", clear_on_submit=True):
         upload_dept = st.selectbox("Department (if missing in file)", ["PICK", "PACK"])
-        uploaded_file = st.file_uploader("Upload Daily Report (CSV/Excel)", type=['csv', 'xlsx'], help="Upload wide-format CSV or Excel with Worker IDs and Dates")
+        uploaded_file = st.file_uploader("Upload Daily Report (CSV/Excel)", type=['csv', 'xlsx'])
         submit_upload = st.form_submit_button("Process File")
-        
+
         if submit_upload and uploaded_file:
             with st.status("Processing Daily Report...", expanded=True) as status:
                 try:
-                    # Security check: Limit file size to 5MB
                     if uploaded_file.size > 5 * 1024 * 1024:
                         raise ValueError("File exceeds maximum allowed size of 5MB.")
 
                     if uploaded_file.name.endswith('.csv'):
                         raw_data = pd.read_csv(uploaded_file)
                     else:
-                        # Security check: Use explicit engine to avoid unsafe legacy parsers
                         raw_data = pd.read_excel(uploaded_file, engine='openpyxl')
 
                     # Identify Worker ID column
@@ -209,47 +183,26 @@ with st.sidebar:
                         if str(col).strip().lower() in ['login', 'worker_id', 'worker id']:
                             id_col = col
                             break
-                    
+
                     if not id_col:
                         status.update(label="Could not find a worker ID column (e.g., 'login', 'Worker_ID').", state="error", expanded=True)
                     else:
-                        # Identify Date columns
                         converted = pd.to_datetime(pd.Series(raw_data.columns).astype(str), errors='coerce', format='mixed')
                         date_cols = raw_data.columns[converted.notna()].tolist()
-                        
+
                         if not date_cols:
                             status.update(label="Could not identify any date columns in the file header.", state="error", expanded=True)
                         else:
-                            # Identify Department column
                             dept_col = None
                             for col in raw_data.columns:
                                 if str(col).strip().lower() == 'department':
                                     dept_col = col
                                     break
-                            
-                        melted_data = melted_data[['Worker_ID', 'Department', 'Date', 'Units_per_Shift']]
-                        
-                        # Sanitize Worker IDs
-                        original_count = len(melted_data)
-                        # Explicitly drop nulls before string conversion to avoid 'nan' artifacts
-                        melted_data = melted_data.dropna(subset=['Worker_ID'])
-                        melted_data = melted_data[melted_data['Worker_ID'].astype(str).apply(is_valid_worker_id)]
-                        dropped_count = original_count - len(melted_data)
 
-                        # Append to state
-                        st.session_state.performance_data = pd.concat([st.session_state.performance_data, melted_data], ignore_index=True)
-                        if dropped_count > 0:
-                            st.warning(f"File processed, but {dropped_count} rows were dropped due to invalid Worker IDs.")
-                        st.success("File parsed, unpivoted, and merged successfully!")
-                        st.rerun()
-                        
-            except Exception as e:
-                st.error(f"Error parsing file: {e}")
                             id_vars = [id_col]
                             if dept_col:
                                 id_vars.append(dept_col)
 
-                            # Unpivot (Melt) the wide dataframe
                             melted_data = pd.melt(
                                 raw_data,
                                 id_vars=id_vars,
@@ -258,7 +211,6 @@ with st.sidebar:
                                 value_name='Units_per_Shift'
                             )
 
-                            # Standardize column names
                             melted_data.rename(columns={id_col: 'Worker_ID'}, inplace=True)
                             if dept_col:
                                 melted_data.rename(columns={dept_col: 'Department'}, inplace=True)
@@ -267,22 +219,28 @@ with st.sidebar:
 
                             melted_data = melted_data[['Worker_ID', 'Department', 'Date', 'Units_per_Shift']]
 
-                            # Append to state
+                            original_count = len(melted_data)
+                            melted_data = melted_data.dropna(subset=['Worker_ID'])
+                            melted_data = melted_data[melted_data['Worker_ID'].astype(str).apply(is_valid_worker_id)]
+                            dropped_count = original_count - len(melted_data)
+
                             st.session_state.performance_data = pd.concat([st.session_state.performance_data, melted_data], ignore_index=True)
+
+                            if dropped_count > 0:
+                                st.warning(f"File processed, but {dropped_count} rows were dropped due to invalid Worker IDs.")
+
                             status.update(label="Report successfully parsed!", state="complete", expanded=False)
+                            st.rerun()
 
                 except Exception as e:
                     status.update(label=f"Error parsing file: {e}", state="error", expanded=True)
 
     with st.expander("⚠️ Danger Zone"):
-        if st.button("Clear All Data"):
-            st.session_state.performance_data = pd.DataFrame(columns=['Worker_ID', 'Department', 'Date', 'Units_per_Shift'])
-            st.toast("All Data Cleared", icon="🗑️")
-            st.rerun()
         confirm = st.checkbox("I confirm I want to clear all data")
         if st.button("Clear All Data", disabled=not confirm):
             st.session_state.performance_data = pd.DataFrame(columns=['Worker_ID', 'Department', 'Date', 'Units_per_Shift'])
             st.toast("All Data Cleared", icon="🗑️")
+            st.rerun()
 
     st.markdown("---")
     st.markdown("### KPI Thresholds")
@@ -320,12 +278,12 @@ def render_dataframe(data, weeks):
     if data.empty:
         st.info("No data available for this department.")
         return
-        
+
     styled_df = data.style.map(get_color_status, subset=weeks + ['Avg Efficiency']) \
                           .format({w: "{:.1%}" for w in weeks}) \
                           .format({'Avg Efficiency': "{:.1%}"}) \
                           .format({'Trend (W-o-W)': format_trend})
-    
+
     st.dataframe(
         styled_df,
         use_container_width=True,
