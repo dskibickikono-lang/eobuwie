@@ -3,3 +3,5 @@ __pycache__/
 *.pyc
 __pycache__
 streamlit_output.log
+.venv/
+__pycache__/
