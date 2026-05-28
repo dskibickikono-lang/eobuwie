@@ -143,8 +143,10 @@ with st.sidebar:
         units = st.text_input("Units Processed (or 'TRAINING'/'NB')", help="Number of items processed during the shift.")
 
         submit_manual = st.form_submit_button("Add Entry")
-        if submit_manual and w_id:
-            if is_valid_worker_id(w_id):
+        if submit_manual:
+            if not w_id:
+                st.toast("Please enter a Worker ID", icon="⚠️")
+            elif is_valid_worker_id(w_id):
                 new_row = pd.DataFrame([{
                     'Worker_ID': w_id.upper(),
                     'Department': dept,
@@ -152,10 +154,9 @@ with st.sidebar:
                     'Units_per_Shift': units
                 }])
                 st.session_state.performance_data = pd.concat([st.session_state.performance_data, new_row], ignore_index=True)
-                st.success(f"Added {w_id.upper()} for {date_val}")
-                st.rerun()
+                st.toast(f"Added {w_id.upper()} for {date_val}", icon="✅")
             else:
-                st.error("Invalid Worker ID format. Use alphanumeric characters (2-15 chars).")
+                st.toast("Invalid Worker ID format (2-15 alphanumeric chars).", icon="❌")
 
     st.markdown("---")
 
@@ -230,17 +231,15 @@ with st.sidebar:
                                 st.warning(f"File processed, but {dropped_count} rows were dropped due to invalid Worker IDs.")
 
                             status.update(label="Report successfully parsed!", state="complete", expanded=False)
-                            st.rerun()
 
                 except Exception as e:
-                    status.update(label=f"Error parsing file: {e}", state="error", expanded=True)
+                    status.update(label="Failed to parse file. Please ensure it's a valid CSV/Excel report.", state="error", expanded=True)
 
     with st.expander("⚠️ Danger Zone"):
         confirm = st.checkbox("I confirm I want to clear all data")
         if st.button("Clear All Data", disabled=not confirm):
             st.session_state.performance_data = pd.DataFrame(columns=['Worker_ID', 'Department', 'Date', 'Units_per_Shift'])
             st.toast("All Data Cleared", icon="🗑️")
-            st.rerun()
 
     st.markdown("---")
     st.markdown("### KPI Thresholds")
