@@ -152,10 +152,9 @@ with st.sidebar:
                     'Units_per_Shift': units
                 }])
                 st.session_state.performance_data = pd.concat([st.session_state.performance_data, new_row], ignore_index=True)
-                st.success(f"Added {w_id.upper()} for {date_val}")
-                st.rerun()
+                st.toast(f"Added {w_id.upper()} for {date_val}", icon="✅")
             else:
-                st.error("Invalid Worker ID format. Use alphanumeric characters (2-15 chars).")
+                st.toast("Invalid Worker ID format. Use alphanumeric characters (2-15 chars).", icon="⚠️")
 
     st.markdown("---")
 
